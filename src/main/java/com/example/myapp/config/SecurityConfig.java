@@ -4,24 +4,18 @@ import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
-import com.example.myapp.model.SiteUser;
-import com.example.myapp.repository.SiteUserRepository;
+import com.example.myapp.util.Authority;
 
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @Configuration
 public class SecurityConfig {
-  private final SiteUserRepository repository;
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
@@ -32,6 +26,9 @@ public class SecurityConfig {
     http.authorizeHttpRequests(auth -> auth
       .requestMatchers(PathRequest.toStaticResources().atCommonLocations())
       .permitAll()
+      .requestMatchers("/register", "/login", "/h2-console/**")
+      .permitAll()
+      .requestMatchers("/admin").hasAuthority(Authority.ADMIN.name())
       .anyRequest()
       .authenticated()
     )
@@ -44,18 +41,9 @@ public class SecurityConfig {
         .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
         .permitAll()
       )
-      .rememberMe();
+      .rememberMe().key("Unique and Secret");
+    http.csrf().disable();	// H2DBデバッグ用
+    http.headers().frameOptions().disable();
     return http.build();
-  }
-  @Bean
-  public UserDetailsService userDetailsService() {
-    return username -> {
-      SiteUser user = repository.findByUsername(username)
-      .orElseThrow(()
-        -> new UsernameNotFoundException(username + " not found"));
-      return new User(user.getUsername(), user.getPassword(),
-        AuthorityUtils.createAuthorityList("ADMIN")
-      );
-    };
   }
 }
